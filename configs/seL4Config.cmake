@@ -25,7 +25,7 @@ include(${CMAKE_CURRENT_LIST_DIR}/../tools/helpers.cmake)
 # aarch32, aarch64, arm_hyp, riscv32, riscv64, x86_64, ia32
 # This macro is intended to be called from within a platform config.
 macro(declare_seL4_arch sel4_arch)
-    set(KernelSel4Arch "${sel4_arch}" CACHE STRING "")
+    set(KernelSel4Arch "${sel4_arch}" CACHE STRING "" FORCE)
     config_choice(
         KernelSel4Arch
         SEL4_ARCH
@@ -98,24 +98,39 @@ endmacro()
 unset(CONFIGURE_PLIC_MAX_NUM_INT CACHE)
 unset(CONFIGURE_TIMER_FREQUENCY CACHE)
 unset(CONFIGURE_MAX_IRQ CACHE)
+unset(CONFIGURE_NUM_PPI CACHE)
 unset(CONFIGURE_INTERRUPT_CONTROLLER CACHE)
 unset(CONFIGURE_TIMER CACHE)
 unset(CONFIGURE_SMMU CACHE)
+unset(CONFIGURE_CLK_SHIFT CACHE)
+unset(CONFIGURE_CLK_MAGIC CACHE)
+unset(CONFIGURE_KERNEL_WCET CACHE)
+unset(CONFIGURE_TIMER_PRECISION CACHE)
+# CLK_SHIFT and CLK_MAGIC are generated from tools/reciprocal.py
+# based on the TIMER_CLK_HZ to simulate division.
+# This could be moved to a cmake function
+# in future to build the values on the first build. Note the calculation
+# can take a long time though.
 function(declare_default_headers)
     cmake_parse_arguments(
         PARSE_ARGV
         0
         CONFIGURE
         ""
-        "TIMER_FREQUENCY;MAX_IRQ;PLIC_MAX_NUM_INT;INTERRUPT_CONTROLLER;TIMER;SMMU"
+        "TIMER_FREQUENCY;MAX_IRQ;NUM_PPI;PLIC_MAX_NUM_INT;INTERRUPT_CONTROLLER;TIMER;SMMU;CLK_SHIFT;CLK_MAGIC;KERNEL_WCET;TIMER_PRECISION"
         ""
     )
     set(CONFIGURE_TIMER_FREQUENCY "${CONFIGURE_TIMER_FREQUENCY}" CACHE INTERNAL "")
     set(CONFIGURE_MAX_IRQ "${CONFIGURE_MAX_IRQ}" CACHE INTERNAL "")
+    set(CONFIGURE_NUM_PPI "${CONFIGURE_NUM_PPI}" CACHE INTERNAL "")
     set(CONFIGURE_PLIC_MAX_NUM_INT "${CONFIGURE_PLIC_MAX_NUM_INT}" CACHE INTERNAL "")
     set(CONFIGURE_INTERRUPT_CONTROLLER "${CONFIGURE_INTERRUPT_CONTROLLER}" CACHE INTERNAL "")
     set(CONFIGURE_TIMER "${CONFIGURE_TIMER}" CACHE INTERNAL "")
     set(CONFIGURE_SMMU "${CONFIGURE_SMMU}" CACHE INTERNAL "")
+    set(CONFIGURE_CLK_SHIFT "${CONFIGURE_CLK_SHIFT}" CACHE INTERNAL "")
+    set(CONFIGURE_CLK_MAGIC "${CONFIGURE_CLK_MAGIC}" CACHE INTERNAL "")
+    set(CONFIGURE_KERNEL_WCET "${CONFIGURE_KERNEL_WCET}" CACHE INTERNAL "")
+    set(CONFIGURE_TIMER_PRECISION "${CONFIGURE_TIMER_PRECISION}" CACHE INTERNAL "")
 endfunction()
 
 # For all of the common variables we set a default value here if they haven't
@@ -135,8 +150,6 @@ foreach(
     KernelArchArmV7a
     KernelArchArmV7ve
     KernelArchArmV8a
-    KernelArmPASizeBits40
-    KernelArmPASizeBits44
 )
     unset(${var} CACHE)
     set(${var} OFF)
@@ -145,6 +158,10 @@ unset(KernelArmMach CACHE)
 unset(KernelArmMachFeatureModifiers CACHE)
 unset(KernelArmCPU CACHE)
 unset(KernelArmArmV CACHE)
+
+# Blacklist platforms without MCS support
+unset(KernelPlatformSupportsMCS CACHE)
+set(KernelPlatformSupportsMCS ON)
 
 file(GLOB result ${CMAKE_CURRENT_LIST_DIR}/../src/plat/*/config.cmake)
 list(SORT result)
@@ -167,8 +184,7 @@ config_set(KernelArchArmV6 ARCH_ARM_V6 "${KernelArchArmV6}")
 config_set(KernelArchArmV7a ARCH_ARM_V7A "${KernelArchArmV7a}")
 config_set(KernelArchArmV7ve ARCH_ARM_V7VE "${KernelArchArmV7ve}")
 config_set(KernelArchArmV8a ARCH_ARM_V8A "${KernelArchArmV8a}")
-config_set(KernelArmPASizeBits40 ARM_PA_SIZE_BITS_40 "${KernelArmPASizeBits40}")
-config_set(KernelArmPASizeBits44 ARM_PA_SIZE_BITS_44 "${KernelArmPASizeBits44}")
+set(KernelPlatformSupportsMCS "${KernelPlatformSupportsMCS}" CACHE INTERNAL "" FORCE)
 
 # Check for v7ve before v7a as v7ve is a superset and we want to set the
 # actual armv to that, but leave armv7a config enabled for anything that
@@ -240,3 +256,30 @@ set(config_c_sources ${config_c_sources} CACHE INTERNAL "")
 set(config_asm_sources ${config_asm_sources} CACHE INTERNAL "")
 set(config_bf_declarations ${config_bf_declarations} CACHE INTERNAL "")
 set(config_KernelDTSList ${KernelDTSList} CACHE INTERNAL "")
+
+if("${TRIPLE}" STREQUAL "")
+    set(toolchain_file gcc.cmake)
+else()
+    set(toolchain_file llvm.cmake)
+endif()
+set(toolchain_outputfile "${CMAKE_BINARY_DIR}/${toolchain_file}")
+if(
+    ("${CMAKE_TOOLCHAIN_FILE}" STREQUAL "")
+    OR ("${CMAKE_TOOLCHAIN_FILE}" STREQUAL "${toolchain_outputfile}")
+)
+    configure_file(
+        "${CMAKE_CURRENT_LIST_DIR}/../${toolchain_file}" "${toolchain_outputfile}.temp" @ONLY
+    )
+    if(EXISTS "${toolchain_outputfile}")
+        file(READ "${toolchain_outputfile}.temp" filea)
+        file(READ "${toolchain_outputfile}" fileb)
+        if(NOT "${filea}" STREQUAL "${fileb}")
+            message(
+                FATAL_ERROR
+                    "Config changes have resulted in a different toolchain file. This is not supported"
+            )
+        endif()
+    endif()
+    file(RENAME "${toolchain_outputfile}.temp" "${toolchain_outputfile}")
+    set(CMAKE_TOOLCHAIN_FILE "${toolchain_outputfile}" CACHE PATH "")
+endif()

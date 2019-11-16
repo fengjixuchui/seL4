@@ -33,6 +33,9 @@ if(KernelPlatformZynqmp)
         message(STATUS "  Defaulting to aarch64")
         declare_seL4_arch(aarch64)
     endif()
+    # MCS is not supported on zynqmp.
+    # It requires a timer driver that implements the tickless programming requirements.
+    set(KernelPlatformSupportsMCS OFF)
     set(KernelArmCortexA53 ON)
     set(KernelArchArmV8a ON)
     config_set(KernelARMPlatform ARM_PLAT zynqmp)
@@ -41,12 +44,17 @@ if(KernelPlatformZynqmp)
     if(NOT KernelPlatformUltra96)
         list(APPEND KernelDTSList "tools/dts/zynqmp.dts")
     endif()
+    list(APPEND KernelDTSList "src/plat/zynqmp/overlay-zynqmp.dts")
 
     declare_default_headers(
         TIMER_FREQUENCY 100000000llu
         MAX_IRQ 187
+        NUM_PPI 32
         TIMER drivers/timer/arm_generic.h
         INTERRUPT_CONTROLLER arch/machine/gic_v2.h
+        CLK_MAGIC 1374389535llu
+        CLK_SHIFT 37u
+        KERNEL_WCET 10u
     )
 endif()
 
