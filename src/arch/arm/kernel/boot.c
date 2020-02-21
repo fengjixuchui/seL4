@@ -100,6 +100,7 @@ BOOT_CODE static void init_irqs(cap_t root_cnode_cap)
     setIRQState(IRQTimer, CORE_IRQ_TO_IRQT(0, KERNEL_TIMER_IRQ));
 #ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
     setIRQState(IRQReserved, CORE_IRQ_TO_IRQT(0, INTERRUPT_VGIC_MAINTENANCE));
+    setIRQState(IRQReserved, CORE_IRQ_TO_IRQT(0, INTERRUPT_VTIMER_EVENT));
 #endif
 #ifdef CONFIG_ARM_SMMU
     setIRQState(IRQReserved, CORE_IRQ_TO_IRQT(0, INTERRUPT_SMMU));
@@ -248,7 +249,10 @@ BOOT_CODE static bool_t try_init_kernel_secondary_core(void)
     setIRQState(IRQIPI, CORE_IRQ_TO_IRQT(getCurrentCPUIndex(), irq_reschedule_ipi));
     /* Enable per-CPU timer interrupts */
     setIRQState(IRQTimer, CORE_IRQ_TO_IRQT(getCurrentCPUIndex(), KERNEL_TIMER_IRQ));
-
+#ifdef CONFIG_ARM_HYPERVISOR_SUPPORT
+    setIRQState(IRQReserved, CORE_IRQ_TO_IRQT(getCurrentCPUIndex(), INTERRUPT_VGIC_MAINTENANCE));
+    setIRQState(IRQReserved, CORE_IRQ_TO_IRQT(getCurrentCPUIndex(), INTERRUPT_VTIMER_EVENT));
+#endif /* CONFIG_ARM_HYPERVISOR_SUPPORT */
     NODE_LOCK_SYS;
 
     ksNumCPUs++;
