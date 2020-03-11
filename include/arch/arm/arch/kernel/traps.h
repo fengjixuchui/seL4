@@ -1,11 +1,7 @@
 /*
  * Copyright 2016, General Dynamics C4 Systems
  *
- * This software may be distributed and modified according to the terms of
- * the GNU General Public License version 2. Note that NO WARRANTY is provided.
- * See "LICENSE_GPLv2.txt" for details.
- *
- * @TAG(GD_GPL)
+ * SPDX-License-Identifier: GPL-2.0-only
  */
 
 #ifndef __KERNEL_ARM_TRAPS_H
@@ -30,6 +26,7 @@ void VISIBLE NORETURN restore_user_context(void);
 void c_handle_syscall(word_t cptr, word_t msgInfo, syscall_t syscall)
 VISIBLE SECTION(".vectors.text");
 
+#ifdef CONFIG_FASTPATH
 void c_handle_fastpath_call(word_t cptr, word_t msgInfo)
 VISIBLE SECTION(".vectors.text");
 
@@ -39,6 +36,7 @@ void c_handle_fastpath_reply_recv(word_t cptr, word_t msgInfo, word_t reply)
 void c_handle_fastpath_reply_recv(word_t cptr, word_t msgInfo)
 #endif
 VISIBLE SECTION(".vectors.text");
+#endif
 
 void c_handle_interrupt(void)
 VISIBLE SECTION(".vectors.text");
