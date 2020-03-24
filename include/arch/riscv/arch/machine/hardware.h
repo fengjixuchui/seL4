@@ -5,12 +5,20 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
-#ifndef __ARCH_MACHINE_HARDWARE_H
-#define __ARCH_MACHINE_HARDWARE_H
+#pragma once
 
 #include <util.h>
 
 #include <mode/hardware.h>
+
+/* Privileged CSR definitions */
+#define SSTATUS_SPIE  0x00000020
+#define SSTATUS_SPP   0x00000100
+
+#define SATP_MODE_OFF  0
+#define SATP_MODE_SV32 1
+#define SATP_MODE_SV39 8
+#define SATP_MODE_SV48 9
 
 #ifndef __ASSEMBLER__
 
@@ -129,4 +137,3 @@ static inline unsigned int CONST pageBitsForSize(vm_page_size_t pagesize)
         asm volatile("fence rw,rw" ::: "memory"); \
     } while (0)
 
-#endif /* !__ARCH_MACHINE_HARDWARE_H */

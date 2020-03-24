@@ -5,11 +5,9 @@
  * SPDX-License-Identifier: GPL-2.0-only
  */
 
-#ifndef __ARCH_MACHINE_REGISTERSET_H
-#define __ARCH_MACHINE_REGISTERSET_H
+#pragma once
 
 #include "hardware.h"
-#include <arch/encoding.h>
 
 #ifndef __ASSEMBLER__
 
@@ -167,4 +165,3 @@ static inline word_t CONST sanitiseRegister(register_t reg, word_t v, bool_t arc
 
 #endif /* __ASSEMBLER__ */
 
-#endif /* !__ARCH_MACHINE_REGISTERSET_H */
