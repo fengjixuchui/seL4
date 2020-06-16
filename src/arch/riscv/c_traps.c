@@ -13,6 +13,7 @@
 #include <api/syscall.h>
 #include <util.h>
 #include <arch/machine/hardware.h>
+#include <machine/fpu.h>
 
 #include <benchmark/benchmark_track.h>
 #include <benchmark/benchmark_utilisation.h>
@@ -29,6 +30,12 @@ void VISIBLE NORETURN restore_user_context(void)
     asm volatile("csrr %0, sscratch" : "=r"(sp));
     sp -= sizeof(word_t);
     *((word_t *)sp) = cur_thread_reg;
+#endif
+
+
+#ifdef CONFIG_HAVE_FPU
+    lazyFPURestore(NODE_STATE(ksCurThread));
+    set_tcb_fs_state(NODE_STATE(ksCurThread), isFpuEnable());
 #endif
 
     asm volatile(
@@ -118,6 +125,14 @@ void VISIBLE NORETURN c_handle_exception(void)
         handleVMFaultEvent(scause);
         break;
     default:
+#ifdef CONFIG_HAVE_FPU
+        if (!isFpuEnable()) {
+            /* we assume the illegal instruction is caused by FPU first */
+            handleFPUFault();
+            setNextPC(NODE_STATE(ksCurThread), getRestartPC(NODE_STATE(ksCurThread)));
+            break;
+        }
+#endif
         handleUserLevelFault(scause, 0);
         break;
     }

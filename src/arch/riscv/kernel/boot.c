@@ -77,7 +77,7 @@ BOOT_CODE static void arch_init_freemem(region_t ui_reg, v_region_t ui_v_reg)
 {
     // This looks a bit awkward as our symbols are a reference in the kernel image window, but
     // we want to do all allocations in terms of the main kernel window, so we do some translation
-    res_reg[0].start = (pptr_t)paddr_to_pptr(kpptr_to_paddr((void *)kernelBase));
+    res_reg[0].start = (pptr_t)paddr_to_pptr(kpptr_to_paddr((void *)KERNEL_ELF_BASE));
     res_reg[0].end = (pptr_t)paddr_to_pptr(kpptr_to_paddr((void *)ki_end));
     res_reg[1].start = ui_reg.start;
     res_reg[1].end = ui_reg.end;
@@ -109,6 +109,15 @@ extern char trap_entry[1];
 
 /* This and only this function initialises the CPU. It does NOT initialise any kernel state. */
 
+#ifdef CONFIG_HAVE_FPU
+BOOT_CODE static void init_fpu(void)
+{
+    set_fs_clean();
+    write_fcsr(0);
+    disableFpu();
+}
+#endif
+
 BOOT_CODE static void init_cpu(void)
 {
 
@@ -118,6 +127,13 @@ BOOT_CODE static void init_cpu(void)
     initLocalIRQController();
 #ifndef CONFIG_KERNEL_MCS
     initTimer();
+#endif
+
+    /* disable FPU access */
+    set_fs_off();
+
+#ifdef CONFIG_HAVE_FPU
+    init_fpu();
 #endif
 }
 
