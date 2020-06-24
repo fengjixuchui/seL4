@@ -49,9 +49,9 @@ typedef struct arch_tcb {
 
 #define VTD_RT_SIZE_BITS  12
 
-#define VTD_CTE_SIZE_BITS 3
+#define VTD_CTE_SIZE_BITS 4
 #define VTD_CTE_PTR(r)    ((vtd_cte_t*)(r))
-#define VTD_CT_BITS       9
+#define VTD_CT_BITS       8
 #define VTD_CT_SIZE_BITS  (VTD_CT_BITS + VTD_CTE_SIZE_BITS)
 
 #define VTD_PTE_SIZE_BITS 3
@@ -255,10 +255,10 @@ static inline void *CONST cap_get_archCapPtr(cap_t cap)
         return (void *)(cap_frame_cap_get_capFBasePtr(cap));
 
     case cap_page_table_cap:
-        return PD_PTR(cap_page_table_cap_get_capPTBasePtr(cap));
+        return PT_PTR(cap_page_table_cap_get_capPTBasePtr(cap));
 
     case cap_page_directory_cap:
-        return PT_PTR(cap_page_directory_cap_get_capPDBasePtr(cap));
+        return PD_PTR(cap_page_directory_cap_get_capPDBasePtr(cap));
 
     case cap_io_port_cap:
         return NULL;
