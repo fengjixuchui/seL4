@@ -589,8 +589,7 @@ static inline void mcsIRQ(irq_t irq)
         checkBudget();
     } else if (NODE_STATE(ksCurSC)->scRefillMax) {
         /* otherwise, if the thread is not schedulable, the SC could be valid - charge it if so */
-        ticks_t capacity = refill_capacity(NODE_STATE(ksCurSC), NODE_STATE(ksConsumed));
-        chargeBudget(capacity, NODE_STATE(ksConsumed), false, CURRENT_CPU_INDEX(), true);
+        chargeBudget(NODE_STATE(ksConsumed), false, CURRENT_CPU_INDEX(), true);
     }
 
 }
@@ -604,8 +603,9 @@ static void handleYield(void)
 {
 #ifdef CONFIG_KERNEL_MCS
     /* Yield the current remaining budget */
-    ticks_t consumed = NODE_STATE(ksCurSC)->scConsumed;
-    chargeBudget(0, REFILL_HEAD(NODE_STATE(ksCurSC)).rAmount, false, CURRENT_CPU_INDEX(), true);
+    ticks_t consumed = NODE_STATE(ksCurSC)->scConsumed + NODE_STATE(ksConsumed);
+    chargeBudget(REFILL_HEAD(NODE_STATE(ksCurSC)).rAmount, false, CURRENT_CPU_INDEX(), true);
+    /* Manually updated the scConsumed so that the full timeslice isn't added, just what was consumed */
     NODE_STATE(ksCurSC)->scConsumed = consumed;
 #else
     tcbSchedDequeue(NODE_STATE(ksCurThread));

@@ -33,6 +33,11 @@
  * at least this much budget - see comment on refill_sufficient */
 #define MIN_BUDGET_US (2u * getKernelWcetUs() * CONFIG_KERNEL_WCET_SCALE)
 #define MIN_BUDGET    (2u * getKernelWcetTicks() * CONFIG_KERNEL_WCET_SCALE)
+#if (CONFIG_KERNEL_STATIC_MAX_BUDGET_US) != 0
+#define MAX_BUDGET_US (CONFIG_KERNEL_STATIC_MAX_BUDGET_US)
+#else
+#define MAX_BUDGET_US getMaxUsToTicks()
+#endif /* CONFIG_KERNEL_STATIC_MAX_BUDGET_US != 0 */
 
 /* Short hand for accessing refill queue items */
 #define REFILL_INDEX(sc, index) (((refill_t *) (SC_REF(sc) + sizeof(sched_context_t)))[index])
@@ -123,10 +128,8 @@ void refill_update(sched_context_t *sc, ticks_t new_period, ticks_t new_budget, 
  * the head refill, resulting in refill_sufficient failing.
  *
  * @param usage the amount of time to charge.
- * @param capacity the value returned by refill_capacity. At most call sites this
- * has already been calculated so pass the value in rather than calculating it again.
  */
-void refill_budget_check(ticks_t used, ticks_t capacity);
+void refill_budget_check(ticks_t used);
 
 /*
  * Charge a the current scheduling context `used` amount from its

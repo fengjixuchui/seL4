@@ -222,10 +222,23 @@ static inline void schedule_used(sched_context_t *sc, refill_t new)
     }
 }
 
-void refill_budget_check(ticks_t usage, ticks_t capacity)
+static inline void ensure_sufficient_head(sched_context_t *sc)
+{
+    /* ensure the refill head is sufficient, such that when we wake in awaken,
+     * there is enough budget to run */
+    while (REFILL_HEAD(sc).rAmount < MIN_BUDGET || refill_full(sc)) {
+        refill_t refill = refill_pop_head(sc);
+        REFILL_HEAD(sc).rAmount += refill.rAmount;
+        /* this loop is guaranteed to terminate as the sum of
+         * rAmount in a refill must be >= MIN_BUDGET */
+    }
+}
+
+void refill_budget_check(ticks_t usage)
 {
     sched_context_t *sc = NODE_STATE(ksCurSC);
     /* this function should only be called when the sc is out of budget */
+    ticks_t capacity = refill_capacity(NODE_STATE(ksCurSC), usage);
     assert(capacity < MIN_BUDGET || refill_full(sc));
     assert(sc->scPeriod > 0);
     REFILL_SANITY_START(sc);
@@ -266,14 +279,7 @@ void refill_budget_check(ticks_t usage, ticks_t capacity)
         refill_split_check(usage);
     }
 
-    /* ensure the refill head is sufficient, such that when we wake in awaken,
-     * there is enough budget to run */
-    while (REFILL_HEAD(sc).rAmount < MIN_BUDGET || refill_full(sc)) {
-        refill_t refill = refill_pop_head(sc);
-        REFILL_HEAD(sc).rAmount += refill.rAmount;
-        /* this loop is guaranteed to terminate as the sum of
-         * rAmount in a refill must be >= MIN_BUDGET */
-    }
+    ensure_sufficient_head(sc);
 
     REFILL_SANITY_END(sc);
 }
@@ -310,6 +316,7 @@ void refill_split_check(ticks_t usage)
             refill_pop_head(sc);
             REFILL_HEAD(sc).rAmount += remnant;
             schedule_used(sc, new);
+            ensure_sufficient_head(sc);
         }
         assert(refill_ordered(sc));
     } else {
@@ -321,6 +328,15 @@ void refill_split_check(ticks_t usage)
     }
 
     REFILL_SANITY_END(sc);
+}
+
+
+static bool_t refill_unblock_check_mergable(sched_context_t *sc)
+{
+    ticks_t amount = REFILL_HEAD(sc).rAmount;
+    ticks_t tail = NODE_STATE_ON_CORE(ksCurTime, sc->scCore) + amount;
+    bool_t enough_time = REFILL_INDEX(sc, refill_next(sc, sc->scRefillHead)).rTime <= tail;
+    return !refill_single(sc) && enough_time;
 }
 
 void refill_unblock_check(sched_context_t *sc)
@@ -338,15 +354,11 @@ void refill_unblock_check(sched_context_t *sc)
         NODE_STATE(ksReprogram) = true;
 
         /* merge available replenishments */
-        while (!refill_single(sc)) {
+        while (refill_unblock_check_mergable(sc)) {
             ticks_t amount = REFILL_HEAD(sc).rAmount;
-            if (REFILL_INDEX(sc, refill_next(sc, sc->scRefillHead)).rTime <= NODE_STATE_ON_CORE(ksCurTime, sc->scCore) + amount) {
-                refill_pop_head(sc);
-                REFILL_HEAD(sc).rAmount += amount;
-                REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore);
-            } else {
-                break;
-            }
+            refill_pop_head(sc);
+            REFILL_HEAD(sc).rAmount += amount;
+            REFILL_HEAD(sc).rTime = NODE_STATE_ON_CORE(ksCurTime, sc->scCore);
         }
 
         assert(refill_sufficient(sc, 0));

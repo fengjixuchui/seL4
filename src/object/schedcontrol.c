@@ -28,15 +28,14 @@ static exception_t invokeSchedControl_Configure(sched_context_t *target, word_t 
 #ifdef ENABLE_SMP_SUPPORT
             if (target->scCore == getCurrentCPUIndex()) {
 #endif /* ENABLE_SMP_SUPPORT */
-                if (checkBudget()) {
-                    commitTime();
-                }
+                /* This could potentially mutate state but if it returns
+                 * true no state was modified, thus removing it should
+                 * be the same. */
+                assert(checkBudget());
+                commitTime();
 #ifdef ENABLE_SMP_SUPPORT
             } else {
-                /* if its a remote core, manually charge the budget */
-                ticks_t capacity = refill_capacity(target, NODE_STATE_ON_CORE(ksConsumed, target->scCore));
-
-                chargeBudget(capacity, NODE_STATE_ON_CORE(ksConsumed, target->scCore), false, target->scCore, false);
+                chargeBudget(NODE_STATE_ON_CORE(ksConsumed, target->scCore), false, target->scCore, false);
                 doReschedule(target->scCore);
             }
 #endif /* ENABLE_SMP_SUPPORT */
@@ -114,19 +113,19 @@ static exception_t decodeSchedControl_Configure(word_t length, cap_t cap, extra_
         return EXCEPTION_SYSCALL_ERROR;
     }
 
-    if (budget_us > getMaxUsToTicks() || budget_us < MIN_BUDGET_US) {
+    if (budget_us > MAX_BUDGET_US || budget_us < MIN_BUDGET_US) {
         userError("SchedControl_Configure: budget out of range.");
         current_syscall_error.type = seL4_RangeError;
         current_syscall_error.rangeErrorMin = MIN_BUDGET_US;
-        current_syscall_error.rangeErrorMax = getMaxUsToTicks();
+        current_syscall_error.rangeErrorMax = MAX_BUDGET_US;
         return EXCEPTION_SYSCALL_ERROR;
     }
 
-    if (period_us > getMaxUsToTicks() || period_us < MIN_BUDGET_US) {
+    if (period_us > MAX_BUDGET_US || period_us < MIN_BUDGET_US) {
         userError("SchedControl_Configure: period out of range.");
         current_syscall_error.type = seL4_RangeError;
         current_syscall_error.rangeErrorMin = MIN_BUDGET_US;
-        current_syscall_error.rangeErrorMax = getMaxUsToTicks();
+        current_syscall_error.rangeErrorMax = MAX_BUDGET_US;
         return EXCEPTION_SYSCALL_ERROR;
     }
 
