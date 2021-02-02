@@ -42,16 +42,6 @@ macro(declare_seL4_arch sel4_arch)
         "x86;KernelArchX86;ARCH_X86;KernelSel4ArchX86_64 OR KernelSel4ArchIA32"
     )
 
-    # The following config options are legacy and can be removed if they
-    # aren't used anywhere anymore.
-    if(KernelArchARM)
-        config_set(KernelArmSel4Arch ARM_SEL4_ARCH "${KernelSel4Arch}")
-    elseif(KernelArchRiscV)
-        config_set(KernelRiscVSel4Arch RISCV_SEL4_ARCH "${KernelSel4Arch}")
-    elseif(KernelArchX86)
-        config_set(KernelX86Sel4Arch X86_SEL4_ARCH "${KernelSel4Arch}")
-    endif()
-
     # arm-hyp masquerades as an aarch32 build
     if(KernelSel4ArchArmHyp)
         config_set(KernelSel4ArmHypAarch32 ARCH_AARCH32 ON)
@@ -62,9 +52,13 @@ macro(declare_seL4_arch sel4_arch)
 
     # Set kernel mode options
     if(KernelSel4ArchAarch32 OR KernelSel4ArchArmHyp OR KernelSel4ArchRiscV32 OR KernelSel4ArchIA32)
-        set_kernel_32()
+        config_set(KernelWordSize WORD_SIZE 32)
+        set(Kernel64 OFF CACHE INTERNAL "")
+        set(Kernel32 ON CACHE INTERNAL "")
     elseif(KernelSel4ArchAarch64 OR KernelSel4ArchRiscV64 OR KernelSel4ArchX86_64)
-        set_kernel_64()
+        config_set(KernelWordSize WORD_SIZE 64)
+        set(Kernel64 ON CACHE INTERNAL "")
+        set(Kernel32 OFF CACHE INTERNAL "")
     endif()
 
 endmacro()
